@@ -4,27 +4,52 @@ import { AxiosService } from '../services/axios';
 import { z } from 'zod';
 
 export const githubRoutes = async (app: FastifyInstance) => {
-  app.get('/users/:user', async (req, rep) => {
+  app.get('/users', async (req, rep) => {
+    const sinceParamsSchema = z.object({
+      since: z.string().optional(),
+    });
+
     try {
-      const paramsSchema = z.object({
-        user: z.string(),
-      });
+      const { since } = sinceParamsSchema.parse(req.query);
 
-      const { user } = paramsSchema.parse(req.params);
-
-      const { data } = await AxiosService.get(
-        `${env.GITHUB_API}/users/${user}`
+      const response = await AxiosService.get(
+        `${env.GITHUB_API}/users?since=${since}`
       );
-      return rep.send(data);
-    } catch (error) {
-      console.log(error);
-    }
+
+      return rep.send({
+        list: response?.data,
+        nextLink: response?.headers.link,
+      });
+    } catch (error) {}
   });
 
-  app.get('/users', async (req, rep) => {
-    const { data } = await AxiosService.get(`${env.GITHUB_API}/users`);
-    console.log(data);
+  app.get('/users/:username/details', async (req, rep) => {
+    const userParamsSchema = z.object({
+      username: z.string(),
+    });
 
-    return rep.send(data);
+    try {
+      const { username } = userParamsSchema.parse(req.params);
+
+      const { data } = await AxiosService.get(
+        `${env.GITHUB_API}/users/${username}`
+      );
+      return rep.send({ user: data });
+    } catch (error) {}
+  });
+
+  app.get('/users/:username/repos', async (req, rep) => {
+    const userParamsSchema = z.object({
+      username: z.string(),
+    });
+
+    try {
+      const { username } = userParamsSchema.parse(req.params);
+
+      const { data } = await AxiosService.get(
+        `${env.GITHUB_API}/users/${username}/repos?type=owner&sort=updated`
+      );
+      return rep.send({ user: data });
+    } catch (error) {}
   });
 };

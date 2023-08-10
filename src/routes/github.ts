@@ -17,7 +17,7 @@ export const githubRoutes = async (app: FastifyInstance) => {
       const { since } = sinceParamsSchema.parse(req.query);
 
       const response = await AxiosService.get(
-        `${env.GITHUB_API}/users?since=${since}&per_page=5`
+        `${env.GITHUB_API}/users?since=${since}&per_page=10`
       );
 
       const sinceId = getNextPageSinceId(response?.headers.link)

@@ -2,6 +2,10 @@ import { FastifyInstance } from 'fastify';
 import { env } from '../env';
 import { AxiosService } from '../services/axios';
 import { z } from 'zod';
+import getNextPageSinceId from '../utils/Regex';
+import { GithubServices } from '../app/services/github';
+
+const githubService = new GithubServices();
 
 export const githubRoutes = async (app: FastifyInstance) => {
   app.get('/users', async (req, rep) => {
@@ -13,14 +17,22 @@ export const githubRoutes = async (app: FastifyInstance) => {
       const { since } = sinceParamsSchema.parse(req.query);
 
       const response = await AxiosService.get(
-        `${env.GITHUB_API}/users?since=${since}`
+        `${env.GITHUB_API}/users?since=${since}&per_page=5`
       );
+
+      const sinceId = getNextPageSinceId(response?.headers.link)
+        ?.toString()
+        .split('=')[1];
 
       return rep.send({
         list: response?.data,
-        nextLink: response?.headers.link,
+        sinceId,
       });
-    } catch (error) {}
+    } catch (error: any) {
+      return rep.status(error?.response?.status).send({
+        message: error?.response?.statusText,
+      });
+    }
   });
 
   app.get('/users/:username/details', async (req, rep) => {
@@ -49,7 +61,8 @@ export const githubRoutes = async (app: FastifyInstance) => {
       const { data } = await AxiosService.get(
         `${env.GITHUB_API}/users/${username}/repos?type=owner&sort=updated`
       );
-      return rep.send({ user: data });
+
+      return rep.send({ repos: await githubService.handleReposInfo(data) });
     } catch (error) {}
   });
 };
